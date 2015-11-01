@@ -4,6 +4,10 @@
 #include <string.h>
 #include "getch.h"
 
+#define ADD_KEY 1
+#define GET_KEY 2
+
+
 void handleErrors(void);
 int encrypt(unsigned char *plaintext, int plaintext_len, unsigned char *key,
             unsigned char *iv, unsigned char *ciphertext);
@@ -11,29 +15,39 @@ int decrypt(unsigned char *ciphertext, int ciphertext_len, unsigned char *key,
             unsigned char *iv, unsigned char *plaintext);
 
 
-int main (void)
+int checkPassword()
 {
-    /* Set up the key and iv. Do I need to say to not hard code these in a
-     * real application? :-)
-     */
+    char secretPassword[20] = "qwerty";
+    unsigned char *password = (unsigned char *) malloc(80);
 
-
-    unsigned char *plaintext = (unsigned char *) malloc(80);
     char c;
     int i =0;
 
-    printf ("Enter your text: ");
-    //fgets ((char *)plaintext , 100 , stdin);
+    printf ("Enter keystore password: ");
 
     c = getch();
     while (c != '\n')
     {
-        plaintext[i] = c;
+        password[i] = c;
         c = getch();
 
         i++;
     }
     printf ("\n");
+
+    if(strcmp(secretPassword, (char *)password) == 0)
+        return 1;
+    else
+        return 0;
+
+}
+
+
+int main (int argc, char **argv)
+{
+    /* Set up the key and iv. Do I need to say to not hard code these in a
+     * real application? :-)
+     */
 
     /* A 256 bit key */
     unsigned char *key = (unsigned char *)"01234567890123456789012345678901";
@@ -41,9 +55,45 @@ int main (void)
     /* A 128 bit IV */
     unsigned char *iv = (unsigned char *)"01234567890123456";
 
-    /* Message to be encrypted */
-    /*unsigned char *plaintext =
+
+    int mode;
+    char keyID[10];
+    unsigned char plaintext[128];
+
+    /* Message to be encrypted
+    unsigned char *plaintext =
             (unsigned char *)"The quick brown fox jumps over the lazy dog";*/
+
+    if(argc < 1)
+    {
+        printf ("Usage: \n");
+        printf ("To add new Key: [NewKeyID] [KEY] \n");
+        printf ("To get key with known ID: [KeyID] \n");
+
+    }
+
+
+
+    if(!checkPassword())          //TODO turn on
+    {
+        printf ("Wrong password \n");
+        return 0;
+    }
+
+    sscanf(argv[1], "%s", keyID );
+    //printf("keyID %s\n", keyID);
+
+    if(argc == 3)
+    {
+        mode = ADD_KEY;//add key mode
+
+        sscanf(argv[2], "%s", plaintext );
+        //printf("plaintext %s\n", plaintext);
+
+    }
+    else if(argc == 2)
+        mode = GET_KEY;
+
 
     /* Buffer for ciphertext. Ensure the buffer is long enough for the
      * ciphertext which may be longer than the plaintext, dependant on the
@@ -56,45 +106,71 @@ int main (void)
 
     int decryptedtext_len, ciphertext_len;
 
-    /* Initialise the library */
+    /* Initialise the library
     ERR_load_crypto_strings();
     OpenSSL_add_all_algorithms();
-    OPENSSL_config(NULL);
-
-    /* Encrypt the plaintext */
-    ciphertext_len = encrypt (plaintext, strlen ((char *)plaintext), key, iv,
-                              ciphertext);
-
-    FILE  *fOUT;
-    char encpath[80] = "/home/stas/ClionProjects/Keystore/";
-    char decpath[80] = "/home/stas/ClionProjects/Keystore/";
-    char* id = "Encrypted";
-    char* out = "Decrypted";
-
-    fOUT = fopen(strcat(encpath,id), "wb");
-    fwrite(ciphertext, sizeof(char) ,ciphertext_len, fOUT);
-    fclose(fOUT);
+    OPENSSL_config(NULL);*/
 
 
-    /* Do something useful with the ciphertext here */
-    printf("Ciphertext is:\n");
-    BIO_dump_fp (stdout, (const char *)ciphertext, ciphertext_len);
+    FILE  *fIN;
+    char path[80] = "/home/stas/ClionProjects/Keystore/";
+    char outpath[80] = "/home/stas/ClionProjects/Keystore/";
 
-    /* Decrypt the ciphertext */
-    decryptedtext_len = decrypt(ciphertext, ciphertext_len, key, iv,
-                                decryptedtext);
+    if(mode == ADD_KEY)
+    {
+        /* Encrypt the plaintext */
 
-    /* Add a NULL terminator. We are expecting printable text */
-    decryptedtext[decryptedtext_len] = '\0';
+        ciphertext_len = encrypt (plaintext, strlen ((char *)plaintext), key, iv, ciphertext);
+
+        fIN = fopen(strcat(path,keyID), "wb");
+        fwrite(ciphertext, sizeof(char) ,ciphertext_len, fIN);
+        fclose(fIN);
+
+        printf("Key added %s\n", plaintext);
+        /*
+        printf("ciphertext_len = %d", ciphertext_len);
+
+         //Do something useful with the ciphertext here
+        printf("Ciphertext is:\n");
+        BIO_dump_fp (stdout, (const char *)ciphertext, ciphertext_len);*/
 
 
-    fOUT = fopen(strcat(decpath,out), "wb");
-    fwrite(decryptedtext, sizeof(char) ,decryptedtext_len, fOUT);
-    fclose(fOUT);
+    }
+    else if(mode == GET_KEY)
+    {
+        /* Decrypt the ciphertext*/
+        fIN = fopen(strcat(path,keyID), "rb");
+        //Get file size
+        fseek(fIN, 0L, SEEK_END);
+        int fsize = ftell(fIN);
+        //set back to normal
+        fseek(fIN, 0L, SEEK_SET);
 
-    /* Show the decrypted text */
-    printf("Decrypted text is:\n");
-    printf("%s\n", decryptedtext);
+        //printf("fsize = %d", fsize);
+
+        fread(ciphertext, sizeof(unsigned char), fsize, fIN);
+        fclose(fIN);
+
+        decryptedtext_len = decrypt(ciphertext, fsize, key, iv, decryptedtext);
+
+
+        /* Add a NULL terminator. We are expecting printable text */
+        decryptedtext[decryptedtext_len] = '\0';
+
+        FILE  *fOUT;
+        fOUT = fopen(strcat(outpath,"temp"), "wb");
+        fwrite(decryptedtext, sizeof(char) ,decryptedtext_len, fOUT);
+        fclose(fOUT);
+
+        /* Show the decrypted text */
+        printf("Key extracted : ");
+        printf("%s\n", decryptedtext);
+
+
+    }
+
+
+
 
     /* Clean up */
     EVP_cleanup();
@@ -102,6 +178,7 @@ int main (void)
 
     return 0;
 }
+
 
 
 int encrypt(unsigned char *plaintext, int plaintext_len, unsigned char *key,
@@ -168,6 +245,7 @@ int decrypt(unsigned char *ciphertext, int ciphertext_len, unsigned char *key,
     /* Provide the message to be decrypted, and obtain the plaintext output.
      * EVP_DecryptUpdate can be called multiple times if necessary
      */
+
     if(1 != EVP_DecryptUpdate(ctx, plaintext, &len, ciphertext, ciphertext_len))
         handleErrors();
     plaintext_len = len;
