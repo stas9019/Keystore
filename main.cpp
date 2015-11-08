@@ -6,6 +6,8 @@
 
 #define ADD_KEY 1
 #define GET_KEY 2
+#define ENCRYPT_FILE 3
+#define DECRYPT_FILE 4
 
 
 void handleErrors(void);
@@ -45,9 +47,28 @@ int checkPassword()
 
 int main (int argc, char **argv)
 {
-    /* Set up the key and iv. Do I need to say to not hard code these in a
-     * real application? :-)
+    /* Buffer for ciphertext. Ensure the buffer is long enough for the
+     * ciphertext which may be longer than the plaintext, dependant on the
+     * algorithm and mode
      */
+    unsigned char ciphertext[1024];
+
+    /* Buffer for the decrypted text */
+    unsigned char decryptedtext[1024];
+
+    int decryptedtext_len, ciphertext_len;
+
+    /* Initialise the library
+    ERR_load_crypto_strings();
+    OpenSSL_add_all_algorithms();
+    OPENSSL_config(NULL);*/
+
+
+    FILE  *fIN;
+    char path[80] = "/home/stas/ClionProjects/Keystore/";
+    char outpath[80] = "/home/stas/ClionProjects/Keystore/";
+
+
 
     /* A 256 bit key */
     unsigned char *key = (unsigned char *)"01234567890123456789012345678901";
@@ -58,7 +79,7 @@ int main (int argc, char **argv)
 
     int mode;
     char keyID[10];
-    unsigned char plaintext[128];
+    unsigned char plaintext[1024];
 
     /* Message to be encrypted
     unsigned char *plaintext =
@@ -69,9 +90,106 @@ int main (int argc, char **argv)
         printf ("Usage: \n");
         printf ("To add new Key: [NewKeyID] [KEY] \n");
         printf ("To get key with known ID: [KeyID] \n");
-
+        printf ("To encrypt text file with your key: encrypt/decrypt [filePath] [your Key]  \n");
     }
 
+
+    /*Part for encrypting files*/
+    if(argc == 4)
+    {
+        char command[10];
+        char filePath[80];
+        char userKey[260];
+
+        sscanf(argv[2], "%s", filePath );
+        sscanf(argv[3], "%s", userKey );
+
+
+        sscanf(argv[1], "%s", command );
+        if(strcmp(command, "encrypt") == 0)
+            mode = ENCRYPT_FILE;
+        else
+            mode = DECRYPT_FILE;
+
+
+        if(mode == ENCRYPT_FILE)
+        {
+
+            /* Decrypt the ciphertext*/
+            fIN = fopen(filePath, "rb");
+            //Get file size
+            fseek(fIN, 0L, SEEK_END);
+            int fsize = ftell(fIN);
+            //set back to normal
+            fseek(fIN, 0L, SEEK_SET);
+
+            /*unsigned char *plaintext =
+                    (unsigned char *)"The quick brown fox jumps over the lazy dog";*/
+
+            int len = fread(plaintext, sizeof(unsigned char), fsize, fIN);
+
+
+            fclose(fIN);
+
+
+            ciphertext_len = encrypt (plaintext, fsize,
+                                      (unsigned char *)userKey, iv, ciphertext);
+
+            //ciphertext[ciphertext_len] = '\0';
+
+            fIN = fopen(filePath, "wb");
+            fwrite(ciphertext, sizeof(char) ,ciphertext_len, fIN);
+            fclose(fIN);
+
+            //printf("File encrypted\n %s\n", plaintext);
+
+        }
+        else if(mode == DECRYPT_FILE)
+        {
+
+            /* Decrypt the ciphertext*/
+            fIN = fopen(filePath, "rb");
+            //Get file size
+            fseek(fIN, 0L, SEEK_END);
+            int fsize = ftell(fIN);
+            //set back to normal
+            fseek(fIN, 0L, SEEK_SET);
+
+            fread(ciphertext, sizeof(char), fsize, fIN);
+
+
+            fclose(fIN);
+
+            //ciphertext[fsize] = '\0';
+
+
+
+            decryptedtext_len = decrypt (ciphertext, fsize,
+                                      (unsigned char *)userKey, iv, decryptedtext);
+
+
+            decryptedtext[decryptedtext_len] = '\0';
+
+            /*unsigned char *plaintext =
+                    (unsigned char *)"The quick brown fox jumps over the lazy dog";
+
+            decryptedtext_len = strlen((char*)plaintext);*/
+
+            fIN = fopen(filePath, "wb");
+            fwrite(decryptedtext, sizeof(char) ,decryptedtext_len, fIN);
+            fclose(fIN);
+
+            //printf("File decrypted\n %s\n", decryptedtext);
+
+        }
+        else
+        {
+            printf("Wrong command \n");
+        }
+
+
+        return 0;
+    }
 
 
     if(!checkPassword())          //TODO turn on
@@ -95,26 +213,7 @@ int main (int argc, char **argv)
         mode = GET_KEY;
 
 
-    /* Buffer for ciphertext. Ensure the buffer is long enough for the
-     * ciphertext which may be longer than the plaintext, dependant on the
-     * algorithm and mode
-     */
-    unsigned char ciphertext[128];
 
-    /* Buffer for the decrypted text */
-    unsigned char decryptedtext[128];
-
-    int decryptedtext_len, ciphertext_len;
-
-    /* Initialise the library
-    ERR_load_crypto_strings();
-    OpenSSL_add_all_algorithms();
-    OPENSSL_config(NULL);*/
-
-
-    FILE  *fIN;
-    char path[80] = "/home/stas/ClionProjects/Keystore/";
-    char outpath[80] = "/home/stas/ClionProjects/Keystore/";
 
     if(mode == ADD_KEY)
     {
