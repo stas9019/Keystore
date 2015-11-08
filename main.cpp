@@ -225,7 +225,8 @@ int main (int argc, char **argv)
         fwrite(ciphertext, sizeof(char) ,ciphertext_len, fIN);
         fclose(fIN);
 
-        printf("Key added %s\n", plaintext);
+        //printf("Key added %s\n", plaintext);
+        printf("Key added \n");
         /*
         printf("ciphertext_len = %d", ciphertext_len);
 
@@ -262,8 +263,8 @@ int main (int argc, char **argv)
         fclose(fOUT);
 
         /* Show the decrypted text */
-        printf("Key extracted : ");
-        printf("%s\n", decryptedtext);
+        printf("Key extracted ");
+        //printf("%s\n", decryptedtext);
 
 
     }
